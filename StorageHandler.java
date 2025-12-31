@@ -2,40 +2,27 @@ import java.io.*;
 import java.util.*;
 
 public class StorageHandler {
-
     private static final String FILE_PATH = "data/expenses.csv";
 
-    public static void saveExpense(Expense e) {
-        try (FileWriter fw = new FileWriter(FILE_PATH, true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
-
-            String safeDescription = e.getDescription().replace(",", ";");
-
-            String line = String.format("%.2f,%s,%s,%s", e.getAmount(), e.getCategory(), safeDescription, e.getDate());
-
-            out.println(line);
-        } catch (IOException ex) {
-            System.out.println("Error saving expense: " + ex.getMessage());
-        }
-    }
-
+    // Load expenses from file
     public static List<Expense> loadExpenses() {
         List<Expense> expenses = new ArrayList<>();
-
         File file = new File(FILE_PATH);
+
         if (!file.exists()) {
             return expenses;
         }
+
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
-            boolean isFirstLine = true;
+            boolean skipHeader = true;
 
             while ((line = br.readLine()) != null) {
-                if (isFirstLine) {
-                    isFirstLine = false;
+                if (skipHeader) {
+                    skipHeader = false;
                     continue;
                 }
+
                 String[] parts = line.split(",", 4);
                 if (parts.length < 4) continue;
 
@@ -44,12 +31,64 @@ public class StorageHandler {
                 String description = parts[2];
                 String date = parts[3];
 
-                Expense e = new Expense(amount, category, description, date);
-                expenses.add(e);
+                expenses.add(new Expense(amount, category, description, date));
             }
-        } catch (IOException ex) {
-            System.out.println("Error loading expenses: " + ex.getMessage());
+        } catch (IOException e) {
+            System.out.println("Error loading expenses.");
         }
         return expenses;
+    }
+
+    // Save a single expense
+    public static void saveExpense(Expense e) {
+        ensureFileExists();
+
+        try (PrintWriter out = new PrintWriter(new FileWriter(FILE_PATH, true))) {
+            String safeDescription = e.getDescription().replace(",", ";");
+            out.printf(
+                "%.2f,%s,%s,%s%n",
+                e.getAmount(),
+                e.getCategory(),
+                safeDescription,
+                e.getDate()
+            );
+        } catch (IOException ex) {
+            System.out.println("Error saving expense.");
+        }
+    }
+
+    // Rewrite all expenses
+    public static void rewriteAllExpenses(List<Expense> expenses) {
+        ensureFileExists();
+
+        try (PrintWriter out = new PrintWriter(new FileWriter(FILE_PATH))) {
+            out.println("amount,category,description,date");
+
+            for (Expense e : expenses) {
+                String safeDescription = e.getDescription().replace(",", ";");
+                out.printf(
+                    "%.2f,%s,%s,%s%n",
+                    e.getAmount(),
+                    e.getCategory(),
+                    safeDescription,
+                    e.getDate()
+                );
+            }
+        } catch (IOException ex) {
+            System.out.println("Error rewriting file.");
+        }
+    }
+
+    // Make sure file and directories exist
+    private static void ensureFileExists() {
+        try {
+            File file = new File(FILE_PATH);
+            file.getParentFile().mkdirs();
+            if (!file.exists()) {
+                PrintWriter out = new PrintWriter(file);
+                out.println("amount,category,description,date");
+                out.close();
+            }
+        } catch (IOException ignored) {}
     }
 }
